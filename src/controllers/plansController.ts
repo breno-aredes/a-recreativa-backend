@@ -8,8 +8,8 @@ export async function createPlan(req: Request, res: Response) {
   try {
     const planData = { ...req.body, file: req.file };
 
-    const plan = await createPlanService(planData);
-    res.status(201).json({ plan });
+    await createPlanService(planData);
+    res.status(201).json({ message: "Plano criado com sucesso" });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }

@@ -33,10 +33,9 @@ export async function createPlanService(planData: CreatePlanInput) {
     filePath: filePath ?? null,
   };
 
-  const plan = await planRepositories.create(planToSave);
-
-  return plan;
+  await planRepositories.create(planToSave);
 }
+
 export async function extractFromDocx(buffer: Buffer) {
   const result = await mammoth.extractRawText({ buffer });
   return extractPlanInfo(result.value);
