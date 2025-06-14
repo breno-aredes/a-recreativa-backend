@@ -1,7 +1,11 @@
 import { Plan } from "../../generated/prisma";
 import prisma from "../config/database";
 
-async function create(data: Plan) {
+type PlanCreateDTO = Omit<Plan, "id" | "createdAt"> & {
+  filePath?: string | null;
+};
+
+async function create(data: PlanCreateDTO) {
   prisma.plan.create({ data });
   return;
 }
