@@ -1,7 +1,42 @@
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 import { extractPlanInfo } from "../utils/extractPlanInfo";
+import { Plan } from "../../generated/prisma";
+import path from "path";
+import fs from "fs";
+import planRepositories from "../repositories/planRepositories";
 
+interface CreatePlanInput extends Omit<Plan, "filePath"> {
+  file?: Express.Multer.File;
+}
+
+export async function createPlanService(planData: CreatePlanInput) {
+  let filePath: string | undefined = undefined;
+
+  if (planData.file) {
+    const uploadsDir = path.resolve(__dirname, "../uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir);
+    }
+
+    const fileName = `${Date.now()}-${planData.file.originalname}`;
+    filePath = `uploads/${fileName}`;
+    const absoluteFilePath = path.join(uploadsDir, fileName);
+
+    fs.writeFileSync(absoluteFilePath, planData.file.buffer);
+  }
+
+  const { file, ...planDataWithoutFile } = planData;
+
+  const planToSave: Plan = {
+    ...planDataWithoutFile,
+    filePath: filePath ?? null,
+  };
+
+  const plan = await planRepositories.create(planToSave);
+
+  return plan;
+}
 export async function extractFromDocx(buffer: Buffer) {
   const result = await mammoth.extractRawText({ buffer });
   return extractPlanInfo(result.value);

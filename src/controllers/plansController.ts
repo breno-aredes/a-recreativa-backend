@@ -1,5 +1,19 @@
 import { Request, Response } from "express";
-import { extractPlanFromFile } from "../services/plansService";
+import {
+  createPlanService,
+  extractPlanFromFile,
+} from "../services/plansService";
+
+export async function createPlan(req: Request, res: Response) {
+  try {
+    const planData = { ...req.body, file: req.file };
+
+    const plan = await createPlanService(planData);
+    res.status(201).json({ plan });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+}
 
 export async function uploadPlan(req: Request, res: Response): Promise<void> {
   try {

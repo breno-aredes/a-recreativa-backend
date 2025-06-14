@@ -3,7 +3,7 @@ import { Request, Response, NextFunction } from "express";
 
 export function schemaValidate(schema: ObjectSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const data = req.file ? { file: req.file } : req.body;
+    const data = { ...req.body, ...(req.file && { file: req.file }) };
 
     const { error } = schema.validate(data, { abortEarly: false });
 
