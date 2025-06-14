@@ -20,6 +20,7 @@ model Plan {
   activities  String
   resources   String
   evaluation  String
+  createdAt   DateTime @default(now())
   homework    String?
   notes       String?
   filePath    String? 

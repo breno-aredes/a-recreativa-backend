@@ -2,7 +2,17 @@ import { Request, Response } from "express";
 import {
   createPlanService,
   extractPlanFromFile,
+  getPlansService,
 } from "../services/plansService";
+
+export async function getAllPlans(req: Request, res: Response) {
+  try {
+    const plans = await getPlansService();
+    res.status(200).json(plans);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+}
 
 export async function createPlan(req: Request, res: Response) {
   try {

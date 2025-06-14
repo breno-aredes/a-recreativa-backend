@@ -10,6 +10,10 @@ interface CreatePlanInput extends Omit<Plan, "filePath"> {
   file?: Express.Multer.File;
 }
 
+export async function getPlansService() {
+  return planRepositories.findAll();
+}
+
 export async function createPlanService(planData: CreatePlanInput) {
   let filePath: string | undefined = undefined;
 

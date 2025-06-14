@@ -6,6 +6,13 @@ async function create(data: Plan) {
   return;
 }
 
+async function findAll() {
+  return prisma.plan.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 export default {
   create,
+  findAll,
 };
