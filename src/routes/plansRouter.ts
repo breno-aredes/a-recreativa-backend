@@ -7,7 +7,12 @@ import { fileUploadSchema, planSchema } from "../schemas/plansSchemas";
 const PlansRouter = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-PlansRouter.post("", schemaValidate(planSchema), createPlan).post(
+PlansRouter.post(
+  "",
+  upload.single("file"),
+  schemaValidate(planSchema),
+  createPlan
+).post(
   "/upload",
   upload.single("file"),
   schemaValidate(fileUploadSchema),
