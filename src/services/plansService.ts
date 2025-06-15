@@ -18,7 +18,7 @@ export async function createPlanService(planData: CreatePlanInput) {
   let filePath: string | undefined = undefined;
 
   if (planData.file) {
-    const uploadsDir = path.resolve(__dirname, "../uploads");
+    const uploadsDir = path.resolve(__dirname, "../../uploads");
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir);
     }

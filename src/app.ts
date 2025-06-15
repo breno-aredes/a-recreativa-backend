@@ -10,7 +10,7 @@ app.use(express.json());
 
 app
   .use("/plans", PlansRouter)
-  .use("/uploads", express.static(path.resolve(__dirname, "uploads")));
+  .use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
 app.get("/health", (_req: Request, res: Response) => {
   res.send("OK!");

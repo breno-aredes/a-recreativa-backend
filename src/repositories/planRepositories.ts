@@ -6,13 +6,13 @@ type PlanCreateDTO = Omit<Plan, "id" | "createdAt"> & {
 };
 
 async function create(data: PlanCreateDTO) {
-  prisma.plan.create({ data });
+  await prisma.plan.create({ data });
   return;
 }
 
 async function findAll() {
   return prisma.plan.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
   });
 }
 
