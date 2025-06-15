@@ -12,7 +12,7 @@ async function create(data: PlanCreateDTO) {
 
 async function findAll() {
   return prisma.plan.findMany({
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
   });
 }
 

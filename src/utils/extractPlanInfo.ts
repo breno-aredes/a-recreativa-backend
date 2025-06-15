@@ -11,35 +11,57 @@ type PlanExtracted = {
   notes: string;
 };
 
-const FIELD_LABELS: Record<keyof PlanExtracted, RegExp[]> = {
-  title: [/^t[íi]tulo:/i, /^t[óo]pico:/i, /^plano de aula$/i],
-  subject: [/^disciplina:/i, /^mat[ée]ria:/i],
-  grade: [/^(ano\/s[ée]rie|ano|s[ée]rie|turma):/i],
-  duration: [/^dura[çc][ãa]o:/i, /^data:/i, /^tempo:/i, /^minutos:/i],
+const FIELD_LABELS: Record<keyof PlanExtracted, string[]> = {
+  title: [
+    "t[íi]tulo",
+    "t[óo]pico",
+    "tema",
+    "plano de aula",
+    "tópico",
+    "assunto",
+  ],
+  subject: ["disciplina", "mat[ée]ria", "área"],
+  grade: ["ano\\/s[ée]rie", "ano", "s[ée]rie", "turma", "ano escolar", "série"],
+  duration: ["dura[çc][ãa]o", "tempo", "minutos", "data", "carga hor[áa]ria"],
   objectives: [
-    /^foco e objetivos da aula:/i,
-    /^objetivos da aula:/i,
-    /^objetivos de aprendizagem:/i,
-    /^objetivos:/i,
+    "foco e objetivos da aula",
+    "objetivos da aula",
+    "objetivos de aprendizagem",
+    "objetivos",
+    "foco",
+    "foco e objetivos",
+    "objetivo",
   ],
   activities: [
-    /^estrutura \/ atividade:/i,
-    /^atividades desenvolvidas:/i,
-    /^atividades:/i,
-    /^estrutura:/i,
+    "estrutura \\/ atividade",
+    "atividades desenvolvidas",
+    "atividades",
+    "estrutura",
+    "atividade",
+    "desenvolvimento",
+    "metodologia",
   ],
   resources: [
-    /^materiais necess[áa]rios:/i,
-    /^recursos necess[áa]rios:/i,
-    /^recursos:/i,
-    /^materiais:/i,
+    "materiais necess[áa]rios",
+    "recursos necess[áa]rios",
+    "recursos",
+    "materiais",
+    "materiais did[áa]ticos",
+    "materiais utilizados",
   ],
-  evaluation: [/^avalia[çc][ãa]o:/i],
-  homework: [/^tarefa de casa:/i, /^tarefa:/i],
+  evaluation: ["avalia[çc][ãa]o", "critérios de avalia[çc][ãa]o"],
+  homework: [
+    "tarefa de casa",
+    "tarefa",
+    "dever de casa",
+    "atividade complementar",
+    "atividade para casa",
+  ],
   notes: [
-    /^observa[çc][õo]es adicionais?:/i,
-    /^observa[çc][õo]es:/i,
-    /^notas:/i,
+    "observa[çc][õo]es adicionais?",
+    "observa[çc][õo]es",
+    "notas",
+    "considera[çc][õo]es finais",
   ],
 };
 
@@ -56,16 +78,76 @@ const FIELD_ORDER: (keyof PlanExtracted)[] = [
   "notes",
 ];
 
-function matchField(line: string): {
-  field: keyof PlanExtracted | null;
-  label: RegExp | null;
-} {
-  for (const key of FIELD_ORDER) {
-    for (const label of FIELD_LABELS[key]) {
-      if (label.test(line.trim())) return { field: key, label };
+function getLabelRegex(label: string): RegExp {
+  return new RegExp(`^\\s*${label}:?\\s*$`, "i");
+}
+
+function getInlineLabelRegex(label: string): RegExp {
+  return new RegExp(`^\\s*${label}:?\\s+(.+)`, "i");
+}
+
+function parseHeaderLine(line: string): Partial<PlanExtracted> {
+  const result: Partial<PlanExtracted> = {};
+
+  // Trata o caso especial onde tudo vem no título
+  if (line.includes("Título:")) {
+    const titleParts = line.split(/\n/);
+    for (const part of titleParts) {
+      if (part.startsWith("Título:")) {
+        result.title = part.replace("Título:", "").trim();
+      }
+      if (part.startsWith("Disciplina:")) {
+        result.subject = part.replace("Disciplina:", "").trim();
+      }
+      if (part.match(/Ano\/S[ée]rie:/i)) {
+        result.grade = part.replace(/Ano\/S[ée]rie:/i, "").trim();
+      }
+      if (part.startsWith("Duração:")) {
+        result.duration = part.replace("Duração:", "").trim();
+      }
     }
+    return result;
   }
-  return { field: null, label: null };
+
+  // Trata o formato original
+  if (/(série|ano):\s*(\d{1,2}[A-Za-z]?)/i.test(line)) {
+    const match = line.match(/(série|ano):\s*(\d{1,2}[A-Za-z]?)/i);
+    if (match) result.grade = match[2].trim();
+  }
+
+  if (
+    /(disciplina|matéria):\s*([^:]+?)(?=\s+(?:série|ano|duração|data):|$)/i.test(
+      line
+    )
+  ) {
+    const match = line.match(
+      /(disciplina|matéria):\s*([^:]+?)(?=\s+(?:série|ano|duração|data):|$)/i
+    );
+    if (match) result.subject = match[2].trim();
+  }
+
+  if (
+    /(duração|data):\s*([^:]+?)(?=\s+(?:série|ano|disciplina|matéria):|$)/i.test(
+      line
+    )
+  ) {
+    const match = line.match(
+      /(duração|data):\s*([^:]+?)(?=\s+(?:série|ano|disciplina|matéria):|$)/i
+    );
+    if (match) result.duration = match[2].trim();
+  }
+
+  if (
+    !result.duration &&
+    /duração:\s*(\d+h|\d{2}\/\d{2}\/\d{4}|\d+\s*minutos)/i.test(line)
+  ) {
+    const match = line.match(
+      /duração:\s*(\d+h|\d{2}\/\d{2}\/\d{4}|\d+\s*minutos)/i
+    );
+    if (match) result.duration = match[1].trim();
+  }
+
+  return result;
 }
 
 export function extractPlanInfo(text: string): PlanExtracted {
@@ -73,43 +155,96 @@ export function extractPlanInfo(text: string): PlanExtracted {
     .replace(/\r/g, "")
     .split("\n")
     .map((l) => l.trim())
-    .filter((l) => l && !/^[_\-\*=]+$/.test(l));
+    .filter((l) => l);
 
   const result: Partial<PlanExtracted> = {};
   let currentField: keyof PlanExtracted | null = null;
   let buffer: string[] = [];
+  let headerProcessed = false;
 
-  for (let i = 0; i <= lines.length; i++) {
-    const line = lines[i] ?? "";
-    const match = matchField(line);
+  function saveBuffer() {
+    if (currentField && buffer.length) {
+      const value = buffer.join("\n").trim();
+      if (value && (!headerProcessed || !result[currentField])) {
+        result[currentField] = value;
+      }
+    }
+    buffer = [];
+  }
 
-    if (match.field || i === lines.length) {
-      if (currentField && buffer.length) {
-        result[currentField] = buffer.join("\n").trim();
+  // Primeira passada: processa apenas o cabeçalho
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const line = lines[i];
+    // Detecta linha de cabeçalho mais rigorosamente
+    if (/(?:título|série|ano|disciplina|matéria|duração|data):/i.test(line)) {
+      const headerValues = parseHeaderLine(line);
+      if (Object.keys(headerValues).length > 0) {
+        Object.assign(result, headerValues);
+        headerProcessed = true;
       }
-      if (match.field) {
-        const value = line.replace(match.label!, "").replace(/^:/, "").trim();
-        buffer = value ? [value] : [];
-        currentField = match.field;
-      } else {
-        buffer = [];
-        currentField = null;
+    }
+  }
+
+  // Segunda passada: processa o resto do documento
+  for (const line of lines) {
+    let foundLabel = false;
+
+    if (
+      line.startsWith("•") ||
+      line.startsWith("-") ||
+      /^\d+[\.)]\s+/.test(line)
+    ) {
+      if (currentField) buffer.push(line);
+      continue;
+    }
+
+    for (const key of FIELD_ORDER) {
+      for (const label of FIELD_LABELS[key]) {
+        const inlineMatch = line.match(getInlineLabelRegex(label));
+        if (inlineMatch) {
+          saveBuffer();
+          currentField = key;
+          if (!headerProcessed || !result[key]) {
+            buffer = [inlineMatch[1]];
+          }
+          foundLabel = true;
+          break;
+        }
+
+        if (getLabelRegex(label).test(line)) {
+          saveBuffer();
+          currentField = key;
+          foundLabel = true;
+          break;
+        }
       }
-    } else if (currentField) {
+      if (foundLabel) break;
+    }
+
+    if (!foundLabel && currentField) {
       buffer.push(line);
     }
   }
 
+  saveBuffer();
+
+  // Pós-processamento
+  if (result.evaluation) {
+    const homeworkMatch = result.evaluation.match(
+      /(?:^|\n)(?:tarefa|dever)[^.]*$/im
+    );
+    if (homeworkMatch) {
+      result.homework = homeworkMatch[0].trim();
+      result.evaluation = result.evaluation
+        .replace(/(?:^|\n)(?:tarefa|dever)[^.]*$/im, "")
+        .trim();
+    }
+  }
+
+  // Garantir que todos os campos existam
   FIELD_ORDER.forEach((k) => {
     result[k] = result[k] || "";
   });
-
-  if (result.title) result.title = result.title.replace(/^[-:]+/, "").trim();
-  if (result.subject)
-    result.subject = result.subject.replace(/^[-:]+/, "").trim();
-  if (result.grade) result.grade = result.grade.replace(/^[-:]+/, "").trim();
-  if (result.duration)
-    result.duration = result.duration.replace(/^[-:]+/, "").trim();
 
   return result as PlanExtracted;
 }
