@@ -11,109 +11,105 @@ type PlanExtracted = {
   notes: string;
 };
 
-const FIELD_LABELS = [
-  { key: "title", labels: [/^PLANO DE AULA$/im, /PLANO DE AULA/i] },
-  { key: "subject", labels: [/Disciplina/i, /Mat[ée]ria/i] },
-  { key: "grade", labels: [/S[ée]rie(?:\/Ano)?/i, /Ano/i, /Turma/i] },
-  {
-    key: "duration",
-    labels: [/Dura[çc][ãa]o/i, /Data/i, /Tempo/i, /Minutos/i],
-  },
-  {
-    key: "objectives",
-    labels: [/Foco e objetivos da aula/i, /Objetivos da Aula/i, /Objetivos/i],
-  },
-  {
-    key: "activities",
-    labels: [
-      /Estrutura \/ Atividade/i,
-      /Atividades Desenvolvidas/i,
-      /Atividades/i,
-      /Estrutura/i,
-    ],
-  },
-  {
-    key: "resources",
-    labels: [/Materiais necessários/i, /Recursos Necessários/i, /Recursos/i],
-  },
-  { key: "evaluation", labels: [/Avalia[çc][ãa]o/i] },
-  { key: "homework", labels: [/Tarefa de Casa/i] },
-  { key: "notes", labels: [/Observa[çc][õo]es Adicionais?/i, /Notas/i] },
-  { key: "learningObjectives", labels: [/Objetivos de aprendizagem/i] },
+const FIELD_LABELS: Record<keyof PlanExtracted, RegExp[]> = {
+  title: [/^t[íi]tulo:/i, /^t[óo]pico:/i, /^plano de aula$/i],
+  subject: [/^disciplina:/i, /^mat[ée]ria:/i],
+  grade: [/^(ano\/s[ée]rie|ano|s[ée]rie|turma):/i],
+  duration: [/^dura[çc][ãa]o:/i, /^data:/i, /^tempo:/i, /^minutos:/i],
+  objectives: [
+    /^foco e objetivos da aula:/i,
+    /^objetivos da aula:/i,
+    /^objetivos de aprendizagem:/i,
+    /^objetivos:/i,
+  ],
+  activities: [
+    /^estrutura \/ atividade:/i,
+    /^atividades desenvolvidas:/i,
+    /^atividades:/i,
+    /^estrutura:/i,
+  ],
+  resources: [
+    /^materiais necess[áa]rios:/i,
+    /^recursos necess[áa]rios:/i,
+    /^recursos:/i,
+    /^materiais:/i,
+  ],
+  evaluation: [/^avalia[çc][ãa]o:/i],
+  homework: [/^tarefa de casa:/i, /^tarefa:/i],
+  notes: [
+    /^observa[çc][õo]es adicionais?:/i,
+    /^observa[çc][õo]es:/i,
+    /^notas:/i,
+  ],
+};
+
+const FIELD_ORDER: (keyof PlanExtracted)[] = [
+  "title",
+  "subject",
+  "grade",
+  "duration",
+  "objectives",
+  "activities",
+  "resources",
+  "evaluation",
+  "homework",
+  "notes",
 ];
 
-function extractField(
-  text: string,
-  labelRegex: RegExp,
-  nextLabels: RegExp[]
-): string {
-  const next = nextLabels.length
-    ? `(?:${nextLabels.map((r) => r.source).join("|")})`
-    : "$";
-  const regex = new RegExp(
-    `${labelRegex.source}\\s*:?\\s*([\\s\\S]*?)(?=\\n\\s*${next}|$)`,
-    "i"
-  );
-  const match = text.match(regex);
-  return (match?.[1] ?? "").replace(/\n\s+/g, "\n").trim();
+function matchField(line: string): {
+  field: keyof PlanExtracted | null;
+  label: RegExp | null;
+} {
+  for (const key of FIELD_ORDER) {
+    for (const label of FIELD_LABELS[key]) {
+      if (label.test(line.trim())) return { field: key, label };
+    }
+  }
+  return { field: null, label: null };
 }
 
 export function extractPlanInfo(text: string): PlanExtracted {
-  let norm = text.replace(/\r/g, "").replace(/[ ]+\n/g, "\n");
+  const lines = text
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l && !/^[_\-\*=]+$/.test(l));
 
-  const allLabels = FIELD_LABELS.flatMap((f) => f.labels);
+  const result: Partial<PlanExtracted> = {};
+  let currentField: keyof PlanExtracted | null = null;
+  let buffer: string[] = [];
 
-  function getField(key: string): string {
-    const field = FIELD_LABELS.find((f) => f.key === key);
-    if (!field) return "";
-    for (const label of field.labels) {
-      const nextLabels = allLabels.filter((r) => !field.labels.includes(r));
-      const value = extractField(norm, label, nextLabels);
-      if (value) {
-        if (key === "grade") {
-          return value
-            .split(/[\n\r]/)[0]
-            .replace(/T[óo]pico:.*/i, "")
-            .replace(/Aula n[ºo]?.*/i, "")
-            .replace(/Data:.*/i, "")
-            .trim();
-        }
-        if (key === "duration") {
-          return value
-            .split(/[\n\r]/)[0]
-            .replace(/T[óo]pico:.*/i, "")
-            .replace(/Aula n[ºo]?.*/i, "")
-            .trim();
-        }
-        if (key === "subject") return value.replace(/S[ée]rie:.*/i, "").trim();
-        return value;
+  for (let i = 0; i <= lines.length; i++) {
+    const line = lines[i] ?? "";
+    const match = matchField(line);
+
+    if (match.field || i === lines.length) {
+      if (currentField && buffer.length) {
+        result[currentField] = buffer.join("\n").trim();
       }
+      if (match.field) {
+        const value = line.replace(match.label!, "").replace(/^:/, "").trim();
+        buffer = value ? [value] : [];
+        currentField = match.field;
+      } else {
+        buffer = [];
+        currentField = null;
+      }
+    } else if (currentField) {
+      buffer.push(line);
     }
-    return "";
   }
 
-  let title = getField("title");
-  if (!title) {
-    const titleMatch = norm.match(/^PLANO DE AULA$/im);
-    if (titleMatch) title = titleMatch[0].trim();
-  }
+  FIELD_ORDER.forEach((k) => {
+    result[k] = result[k] || "";
+  });
 
-  let objectives = getField("objectives");
-  const learningObjectives = getField("learningObjectives");
-  if (learningObjectives) {
-    objectives += (objectives ? "\n" : "") + learningObjectives;
-  }
+  if (result.title) result.title = result.title.replace(/^[-:]+/, "").trim();
+  if (result.subject)
+    result.subject = result.subject.replace(/^[-:]+/, "").trim();
+  if (result.grade) result.grade = result.grade.replace(/^[-:]+/, "").trim();
+  if (result.duration)
+    result.duration = result.duration.replace(/^[-:]+/, "").trim();
 
-  return {
-    title,
-    subject: getField("subject"),
-    grade: getField("grade"),
-    duration: getField("duration"),
-    objectives,
-    activities: getField("activities"),
-    resources: getField("resources"),
-    evaluation: getField("evaluation"),
-    homework: getField("homework"),
-    notes: getField("notes"),
-  };
+  return result as PlanExtracted;
 }

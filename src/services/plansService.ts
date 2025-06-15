@@ -10,11 +10,15 @@ interface CreatePlanInput extends Omit<Plan, "filePath"> {
   file?: Express.Multer.File;
 }
 
+export async function getPlansService() {
+  return planRepositories.findAll();
+}
+
 export async function createPlanService(planData: CreatePlanInput) {
   let filePath: string | undefined = undefined;
 
   if (planData.file) {
-    const uploadsDir = path.resolve(__dirname, "../uploads");
+    const uploadsDir = path.resolve(__dirname, "../../uploads");
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir);
     }
@@ -33,10 +37,9 @@ export async function createPlanService(planData: CreatePlanInput) {
     filePath: filePath ?? null,
   };
 
-  const plan = await planRepositories.create(planToSave);
-
-  return plan;
+  await planRepositories.create(planToSave);
 }
+
 export async function extractFromDocx(buffer: Buffer) {
   const result = await mammoth.extractRawText({ buffer });
   return extractPlanInfo(result.value);

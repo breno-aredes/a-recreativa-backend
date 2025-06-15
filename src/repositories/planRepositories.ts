@@ -1,10 +1,22 @@
 import { Plan } from "../../generated/prisma";
 import prisma from "../config/database";
 
-async function create(data: Plan) {
-  return prisma.plan.create({ data });
+type PlanCreateDTO = Omit<Plan, "id" | "createdAt"> & {
+  filePath?: string | null;
+};
+
+async function create(data: PlanCreateDTO) {
+  await prisma.plan.create({ data });
+  return;
+}
+
+async function findAll() {
+  return prisma.plan.findMany({
+    orderBy: { createdAt: "asc" },
+  });
 }
 
 export default {
   create,
+  findAll,
 };
